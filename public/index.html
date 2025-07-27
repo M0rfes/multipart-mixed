@@ -4,6 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>multi-part streaming</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        #output {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 10px;
+        }
+        .post {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px;
+        }
+        .comment {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px;
+        }
+        .post-id {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        .post-data {
+            font-size: 1em;
+        }
+        .comment-id {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .comment-text {
+            font-size: 1em;
+        }
+        .comment-user {
+            font-size: 0.8em;
+        }
+        .comment-user-loading {
+            font-size: 0.8em;
+            color: #ccc;
+            border: 1px solid red;
+        }
+        .comment-loading {
+            font-size: 0.8em;
+            color: #ccc;
+            border: 1px solid blue;
+        }
+
+    </style>
   </head>
   <body>
     <h1>Multi-part streaming</h1>
@@ -22,11 +76,55 @@
       }
 
       const startButton = document.getElementById("start");
-      startButton.addEventListener("click", () => {
-        streamMultipartWithMeros("/stream", (part) => {
-          console.log("part",part);
+      const posts = new Map();
+      const comments = new Map();
+      const users = new Map();
+      function rerender () {
+        const output = document.getElementById("output");
+        output.innerHTML = "";
+        posts.forEach((post) => {
+          output.innerHTML += `
+          <div class="post">
+            <h2 class="post-id">${post.id}</h2>
+            <p class="post-data">${post.data}</p>
+            <br/>
+            <h3 class="post-comments-title">Comments:</h3>
+            ${post.comments.map(c=>{
+            const comment = comments.get(c);
+              return comment ? `<div class="comment">
+                <h4 class="comment-id">${comment.id}</h4>
+                <p class="comment-text">${comment.text}</p>
+                ${users.get(comment.user) ? `<p class="comment-user">by ${users.get(comment.user).name}</p>` : `<p class="comment-user-loading">loading... ${comment.user}</p>`}
+              </div>` : `<div class="comment-loading"> loading... ${c}</div>`;
+            }).join("")}
+          </div>
+          `
         });
-      });
+      }
+      startButton.addEventListener("click",() => {
+        streamMultipartWithMeros("/stream", (data) => {
+          console.log(JSON.stringify(data, null, 2));
+          if(data.type === "post") {
+            delete data.type;
+            for(const key in data) {
+              posts.set(key, data[key]);
+            }
+          }
+          if(data.type === "comment") {
+            delete data.type;
+            for(const key in data) {
+              comments.set(key, data[key]);
+            }
+          }
+          if(data.type === "user") {
+            delete data.type;
+            for(const key in data) {
+              users.set(key, data[key]);
+            }
+          }
+          rerender();
+        });
+      })
     </script>
   </body>
 </html>

@@ -114,7 +114,7 @@ func getComments(ch chan<- string) {
 			fmt.Println("Error marshalling comments:", err)
 			continue
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(600 * time.Millisecond)
 		ch <- string(commentJSON)
 	}
 	close(ch)
@@ -130,7 +130,7 @@ func getUsers(ch chan<- string) {
 			fmt.Println("Error marshalling users:", err)
 			continue
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(700 * time.Millisecond)
 		ch <- string(userJSON)
 	}
 	close(ch)
@@ -151,14 +151,15 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 
 	var mu sync.Mutex
 	sendPart := func(jsonPayload string) {
-		mu.Lock()
 		defer mu.Unlock()
 		fmt.Fprintf(w, "--%s\r\n", boundary)
 		fmt.Fprint(w, "Content-Type: application/json\r\n\r\n")
 		fmt.Fprint(w, jsonPayload)
 		fmt.Fprint(w, "\r\n")
 		flusher.Flush()
-		time.Sleep(1 * time.Millisecond)
+		// need this to make sure the client is ready to receive the next part
+		// TODO: find a better way to do this
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	postCh := make(chan string)
@@ -181,18 +182,21 @@ func streamHandler(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					postClosed = true
 				} else {
+					mu.Lock()
 					sendPart(post)
 				}
 			case comment, ok := <-commentCh:
 				if !ok {
 					commentClosed = true
 				} else {
+					mu.Lock()
 					sendPart(comment)
 				}
 			case user, ok := <-userCh:
 				if !ok {
 					userClosed = true
 				} else {
+					mu.Lock()
 					sendPart(user)
 				}
 			}
