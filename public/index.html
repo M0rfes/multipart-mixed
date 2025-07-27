@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>multi-part streaming</title>
+  </head>
+  <body>
+    <h1>Multi-part streaming</h1>
+    <button id="start">load posts</button>
+    <div id="output"></div>
+    <script type="module">
+      import { meros } from "https://cdn.skypack.dev/meros";
+      async function streamMultipartWithMeros(url, onPart) {
+        const resp = await fetch(url, {
+          headers: { Accept: "multipart/mixed" },
+        });
+        const parts = await meros(resp);
+        for await (const part of parts) {
+          onPart(part.body);
+        }
+      }
+
+      const startButton = document.getElementById("start");
+      startButton.addEventListener("click", () => {
+        streamMultipartWithMeros("/stream", (part) => {
+          console.log("part",part);
+        });
+      });
+    </script>
+  </body>
+</html>
