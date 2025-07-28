@@ -14,55 +14,35 @@
             font-family: Arial, sans-serif;
             padding: 20px;
         }
-        #output {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 10px;
+        table {
+            width: 100%;
+            border-collapse: collapse;
         }
-        .post {
+        th, td {
             border: 1px solid #ccc;
-            padding: 10px;
-            margin: 10px;
+            padding: 8px;
+            text-align: left;
+            text-wrap: wrap;
+            text-align: center;
         }
-        .comment {
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin: 10px;
-        }
-        .post-id {
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-        .post-data {
-            font-size: 1em;
-        }
-        .comment-id {
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-        .comment-text {
-            font-size: 1em;
-        }
-        .comment-user {
-            font-size: 0.8em;
-        }
-        .comment-user-loading {
-            font-size: 0.8em;
-            color: #ccc;
-            border: 1px solid red;
-        }
-        .comment-loading {
-            font-size: 0.8em;
-            color: #ccc;
-            border: 1px solid blue;
-        }
-
     </style>
   </head>
   <body>
     <h1>Multi-part streaming</h1>
     <button id="start">load posts</button>
-    <div id="output"></div>
+    <h1>Jobs</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Job ID</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Updated At</th>
+            </tr>
+        </thead>
+        <tbody id="jobs-table-body"></tbody>
+    </table>
+    
     <script type="module">
       import { meros } from "https://cdn.skypack.dev/meros";
       async function streamMultipartWithMeros(url, onPart) {
@@ -76,52 +56,31 @@
       }
 
       const startButton = document.getElementById("start");
-      const posts = new Map();
-      const comments = new Map();
-      const users = new Map();
+      const jobs = [];
+      const formatDate = (date) => {
+        return new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(new Date(date));
+      }
       function rerender () {
-        const output = document.getElementById("output");
-        output.innerHTML = "";
-        posts.forEach((post) => {
-          output.innerHTML += `
-          <div class="post">
-            <h2 class="post-id">${post.id}</h2>
-            <p class="post-data">${post.data}</p>
-            <br/>
-            <h3 class="post-comments-title">Comments:</h3>
-            ${post.comments.map(c=>{
-            const comment = comments.get(c);
-              return comment ? `<div class="comment">
-                <h4 class="comment-id">${comment.id}</h4>
-                <p class="comment-text">${comment.text}</p>
-                ${users.get(comment.user) ? `<p class="comment-user">by ${users.get(comment.user).name}</p>` : `<p class="comment-user-loading">loading... ${comment.user}</p>`}
-              </div>` : `<div class="comment-loading"> loading... ${c}</div>`;
-            }).join("")}
-          </div>
-          `
+        const jobsTableBody = document.getElementById("jobs-table-body");
+        jobsTableBody.innerHTML = "";
+        jobs.forEach(job => {
+          jobsTableBody.innerHTML += `<tr>
+            <td>${job.job_id}</td>
+            <td>${job.status}</td>
+            <td>${formatDate(job.created_at)}</td>
+            <td>${formatDate(job.updated_at)}</td>
+          </tr>`;
         });
       }
       startButton.addEventListener("click",() => {
-        streamMultipartWithMeros("/stream", (data) => {
-          console.log(JSON.stringify(data, null, 2));
-          if(data.type === "post") {
-            delete data.type;
-            for(const key in data) {
-              posts.set(key, data[key]);
-            }
-          }
-          if(data.type === "comment") {
-            delete data.type;
-            for(const key in data) {
-              comments.set(key, data[key]);
-            }
-          }
-          if(data.type === "user") {
-            delete data.type;
-            for(const key in data) {
-              users.set(key, data[key]);
-            }
-          }
+        streamMultipartWithMeros("/table-data", (data) => {
+          jobs.push(data);
           rerender();
         });
       })
